@@ -1,0 +1,564 @@
+#!/usr/bin/perl -w -I/usr/local/eprints/perl_lib
+
+###############################################################################
+#
+# Import citation data from Web of Science via Links Article Match Retrieval
+# Service
+#
+###############################################################################
+#
+# Copyright 2015 University of Zurich. All Rights Reserved.
+#
+#  This script is free software; you can redistribute them and/or modify
+#  them under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  The script is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with EPrints 3; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+###############################################################################
+
+=pod
+
+=for Pod2Wiki
+
+=head1 NAME
+
+B<import_citation_data_from_wos_via_lamr> - Import Times Cited, UT Number, 
+Source URL, Citing Article URL, Related Records® URL from Web of Science® 
+via Links Article Match Retrieval Service (Links AMR).
+
+=head1 SYNOPSIS
+
+B<import_citation_data_from_wos_via_lamr> [B<options>] I<repository_id> 
+[B<eprintid> eprintid ...] 
+
+=head1 DESCRIPTION
+
+This script imports Times Cited, UT Number, Source URL, Citing Article URL, 
+Related Records® URL from Web of Science® into the fields woslamr_times_cited, 
+woslamr_cluster, woslamr_source_url, woslamr_citing_articles_url and 
+woslamr_related_records_url respectively, which you must have created earlier. 
+Additionally the field no_citation_data_from_wos must have been created earlier, 
+which is used to prevent an import for individual eprints. For field definitions 
+see the documentation which came with this command.
+
+Times Cited, UT Number and the URLs will only be updated in the individual EPrints 
+if they are different from the current value. DOI and PubMedID will only be imported 
+for an eprint if they are not already set.
+
+If you do not provide a list of eprintids the import will be performed for all 
+live eprints (dataset=archive) which are of one of the given types (see options) 
+and no_citation_data_from_wos is FALSE or NULL. If you provide a list of 
+eprintids the import will be performed only for those eprints regardless of 
+their type, dataset status and value of no_citation_data_from_wos.
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--request-size> I<value>
+
+The number of eprints for which citation data is requested per 
+request to Links AMR. The value defaults to 50.
+
+=item B<--types> I<value>
+
+If not getting citation data for individually mentioned eprints, this option is 
+used to set the document types for which citation data will be retrieved. Use the 
+internal type values and not their labels and separate them by single spaces.
+The default string used if you don't give this option is 
+"article book_section conference_item monograph edited_scientific_work". 
+This is equivalent to specifying the option on the command line as --types 
+"article book_section conference_item monograph edited_scientific_work".
+
+=item B<--crawl-retry NUM>
+
+Re-try failed requests up to NUM times (default: 3 tries).
+
+=item B<--crawl-delay INT>
+
+Delay time in seconds between two requests (default: 10 seconds)
+
+=item B<--mailto> <value>
+
+Mail a report to the e-mail address given as value. If not specified, no report 
+will be sent.
+
+=back
+
+=cut
+
+system "date"; 
+
+use LWP::UserAgent;
+use EPrints;
+use Encode;
+use Data::Dumper;
+use CGI;
+use Getopt::Long;
+use Pod::Usage;
+
+my $ua;
+
+# Set variables
+#
+my $request_size = 50;
+my $types = "article book_section conference_item monograph edited_scientific_work";
+my $crawl_retry = 3;
+my $crawl_delay = 10;
+my $mailname = "";
+my $mailaddress;
+my $verbose = 0;
+my $quiet = 0;
+my $help = 0;
+my $man = 0;
+
+Getopt::Long::Configure("permute");
+GetOptions(
+	'request-size=i' => \$request_size,
+	'types=s' => \$types,
+	'crawl-retry=i' => \$crawl_retry,
+	'crawl-delay=i' => \$crawl_delay,
+        'mailto=s' => \$mailaddress,
+        'help|?' => \$help,
+        'man' => \$man,
+        'verbose+' => \$verbose,
+        'quiet' => \$quiet,
+) || pod2usage(3);
+
+# Print out help screens, if desired
+#
+pod2usage( 1 ) if $help;
+pod2usage( -exitstatus => 0, -verbose => 2 ) if $man;
+pod2usage( 2 ) if( scalar @ARGV < 1 );
+
+#
+# Configure verbosity
+#
+my $noise = 1;
+$noise = 0 if( $quiet );
+$noise = 1+$verbose if( $verbose );
+
+my $repoid = $ARGV[0];
+
+my $repo = EPrints::Repository->new( 
+	$repoid,
+	noise => $noise
+);
+
+if ( !defined $repo )
+{
+	print "Failed to load repository: $repoid\n";
+	exit 1;
+}
+
+print 	"Setting variables\n" .
+	"request-size=$request_size\n" .
+	"types=$types\n" . 
+	"crawl-retry=$crawl_retry\n" .
+	"crawl-delay=$crawl_delay\n" if $verbose;
+
+if ( defined $mailaddress )
+{
+	print "Sending report to: " . $mailaddress . "\n\n";
+}
+else
+{
+	print "No report will be mailed.\n\n";
+}
+
+# Read WoS LAMR configuration
+#
+my $app_id = $repo->config('woslamr','app_id');
+my $env_id = $repo->config('woslamr','env_id');
+my $partner_email = $repo->config('woslamr','partner_email');
+
+my $doi_fieldname = $repo->config('woslamr','doi');
+my $pmid_fieldname = $repo->config('woslamr','pmid');
+
+# Get the eprints for which to request data from WoS LAMR API
+#
+my $eplist;
+
+if ( scalar(@ARGV) == 1 )
+{
+	# Search for eprints from the dataset with one of the necessary types 
+	# and remove from the results those where no_citation_data_from_wos 
+	# is TRUE
+	#
+	my $datasetid= "archive";
+	my $ds = $repo->get_dataset( $datasetid ) ;
+
+	if( !defined $ds )
+	{
+		print "Unknown Dataset ID: $datasetid\n";
+		$repo->terminate;
+		exit 1;
+	}
+
+	my $epexp = EPrints::Search->new(
+		session => $repo,
+		dataset => $ds,
+	);
+
+	$epexp->add_field(
+		$ds->get_field("type"),
+		$types,
+		"EQ",
+		"ANY",
+	);
+
+	$eplist = $epexp->perform_search->remainder(
+		$ds->search(
+			filters => [
+				{
+					meta_fields =>  [ "no_citation_data_from_wos" ],
+					value => "TRUE",
+				},
+			],
+		)
+	);
+}
+else
+{
+	# Get only the eprints listed as command-line parameters
+	#
+	my $plist = "";
+
+	for (my $i = 1; $i < scalar(@ARGV); $i++)
+	{
+		$plist = $plist . $ARGV[$i] . " ";
+	}
+	
+	$plist = substr($plist,0,-1) if (length($plist) > 0);
+
+	my $datasetid= "eprint";
+	my $ds = $repo->get_dataset( $datasetid ) ;
+
+	if( !defined $ds )
+ 	{
+ 		print "Unknown Dataset ID: $datasetid\n";
+ 		$repo->terminate;
+ 		exit 1;
+ 	}
+
+	my $epexp = EPrints::Search->new(
+		session => $repo,
+		dataset => $ds,
+	);
+
+	$epexp->add_field(
+		$ds->get_field("eprintid"),
+		$plist,
+		"EQ",
+		"ANY",
+	);
+
+	$eplist = $epexp->perform_search;
+}
+
+my $total = $eplist->count;
+my $counter = 0;
+my $errmail = "";
+my $problemids = "";
+
+#Loop through the eprints $request_size at a time
+#
+while ( $counter <= $total - 1 )
+{
+	my %cite;
+	
+	# Get the slice of $request_size eprints
+	#
+	my @epslice = $eplist->slice( $counter, $request_size );
+
+	# Make the framework of the XML request
+	#
+	my $reqxml = q{<?xml version="1.0" encoding="UTF-8" ?>
+	<request xmlns="http://www.isinet.com/xrpc42" src="app.id=%%%APPID%%%,env.id=%%%ENVID%%%,partner.email=%%%PARTNEREMAIL%%%">
+		<fn name="LinksAMR.retrieve">
+			<list>
+				<!-- WHO IS REQUESTING -->
+				<map>
+				</map>
+				<!-- WHAT IS REQUESTED -->
+				<map>
+					<list name="WOS">
+						<val>timesCited</val>
+						<val>ut</val>
+						<val>doi</val>
+						<val>sourceURL</val>
+						<val>citingArticlesURL</val>
+						<val>relatedRecordsURL</val>
+					</list>
+				</map>
+				<!-- LOOKUP DATA -->
+				<map>
+					%%%CITATIONLIST%%%
+				</map>
+			</list>
+		</fn>
+	</request>
+	};
+	
+	
+	# Make the individual citation requests using get_citation_query(). 
+	# Store the citation requests in a hash with the eprintids as keys. At the 
+	# same time make a string of all the citation requests and insert this 
+	# string in the request framework above.
+	#
+	my $citelist = "";
+	foreach my $eprint (@epslice)
+	{
+		my $onecite = get_citation_query($eprint, $doi_fieldname, $pmid_fieldname);
+		my $currentid = $eprint->get_value("eprintid");
+		$cite{$currentid} = $onecite;
+		$citelist .= $onecite;
+	}
+
+	$reqxml =~ s/%%%APPID%%%/$app_id/;
+	$reqxml =~ s/%%%ENVID%%%/$env_id/;
+	$reqxml =~ s/%%%PARTNEREMAIL%%%/$partner_email/;
+	$reqxml =~ s/%%%CITATIONLIST%%%/$citelist/;
+
+	# Make the request. If unsuccessful, requests will be tried up to $crawl_retry times.
+	#
+	my $reqctr = 1;
+	my $success = 0;
+	
+	while ( ( !$success ) && ( $reqctr <= $crawl_retry ) )
+	{
+		print "Request attempt " . $reqctr . "\n" if $verbose;
+		sleep( $crawl_delay ) unless $reqctr == 1;
+
+		$ua = LWP::UserAgent->new;
+		$ua->env_proxy;
+		$ua->timeout(180);
+		$response = $ua->post( 
+			"https://ws.isiknowledge.com/cps/xrpc", 
+			'Content-type' => 'application/xml;charset=utf-8', 
+			Content => encode_utf8($reqxml)
+		);
+		$success = $response->is_success;
+		$reqctr++;
+	}
+	
+	if ( $success )
+	{
+		# Parse the response content and check for general errors. 
+		# If there is a general error, print the error message and exit, else process further.
+		#
+		$response = EPrints::XML::parse_xml_string( $response->decoded_content );
+		
+		my $generr;
+		
+		if ( defined $response->getElementsByTagName("fn")->item(0) )
+		{
+			$generr = $response->getElementsByTagName("fn")->item(0)->getChildrenByTagName("error")->item(0);
+		}
+		else
+		{
+			$generr = $response->getElementsByTagName("error")->item(0);
+		}
+		
+		if ( defined $generr )
+		{
+			my $tmpgenerr =  "General error - Error code = '" . $generr->getAttribute( "code" ) . 
+			"', Error message = '" . $generr->textContent . "'\n" . "Request was:\n" . 
+			encode_utf8( $reqxml ) . "\n\n";
+			print $tmpgenerr;
+			$errmail = $errmail . $tmpgenerr;
+		}
+		else
+		{
+			# Get the results for the individual citation requests
+			#
+			my @citevals = $response->getElementsByTagName("fn")->item(0)->getChildrenByTagName("map")->item(0)->getChildrenByTagName("map");
+
+			my ($eprintid, $timescited, $doi, $pubmedid, $surl, $caurl, $rrurl);
+			
+			# Loop through individual results
+			#
+			foreach my $oneval (@citevals)
+			{
+				# Check for error messages of individual citation requests
+				#
+				my $citerrpossible = $oneval->getElementsByTagName("map")->item(0)->getChildrenByTagName("val")->item(0);
+				
+				if ( $citerrpossible->getAttribute("name") eq "message" )
+				{
+					my $tmperr = "EPrintid " . $oneval->getAttribute("name") . ": " . $citerrpossible->textContent . 
+					". Request was " . $cite{$oneval->getAttribute("name")} . "\n"; 
+					print $tmperr;
+					$errmail = $errmail . $tmperr;
+					$problemids = $problemids . $oneval->getAttribute("name") . " ";
+				}
+				else
+				{
+					# Store the results of the individual citation request in a hash 
+					# with key=WoS LAMR field name, value=value. Then write the results 
+					# back to the individual eprints.
+					#
+					my %resultvals;
+					foreach my $oneresultval ($oneval->getElementsByTagName("map")->item(0)->getChildrenByTagName("val"))
+					{
+						my $wos_lamr_field = $oneresultval->getAttribute("name");
+						my $wos_lamr_value = $oneresultval->textContent;
+						
+						if ( defined $wos_lamr_value )
+						{
+							$resultvals{$wos_lamr_field} = $wos_lamr_value;
+						}
+						else
+						{
+							$resultvals{$wos_lamr_field} = '';
+						}
+					}
+					
+					my $current_eprint = $repo->eprint($oneval->getAttribute("name"));
+
+					my $tmp = $current_eprint->get_value( "woslamr_times_cited" );
+					$tmp = -5 if (not defined $tmp);
+					$current_eprint->set_value("woslamr_times_cited", $resultvals{timesCited}) if ((defined $resultvals{timesCited}) && ($resultvals{timesCited} != $tmp) );
+
+					$tmp = $current_eprint->get_value( "woslamr_cluster" );
+					$tmp = "undefined" if (not defined $tmp);
+					$current_eprint->set_value("woslamr_cluster", $resultvals{ut}) if ((defined $resultvals{ut}) && ($resultvals{ut} ne $tmp));
+
+					$tmp = $current_eprint->get_value( "woslamr_source_url" );
+					$tmp = "undefined" if (not defined $tmp);
+					$current_eprint->set_value("woslamr_source_url", $resultvals{sourceURL}) if ((defined $resultvals{sourceURL}) && ($resultvals{sourceURL} ne $tmp) );
+
+					$tmp = $current_eprint->get_value( "woslamr_citing_articles_url" );
+					$tmp = "undefined" if (not defined $tmp);
+					$current_eprint->set_value("woslamr_citing_articles_url", $resultvals{citingArticlesURL}) if ((defined $resultvals{citingArticlesURL}) && ($resultvals{citingArticlesURL} ne $tmp) );
+
+					$tmp = $current_eprint->get_value( "woslamr_related_records_url" );
+					$tmp = "undefined" if (not defined $tmp);
+					$current_eprint->set_value("woslamr_related_records_url", $resultvals{relatedRecordsURL}) if ((defined $resultvals{relatedRecordsURL}) && ($resultvals{relatedRecordsURL} ne $tmp) );
+
+					$tmp = $current_eprint->get_value( $doi_fieldname );
+					if (defined $tmp)
+					{
+						$tmp =~ s/^\s+//;
+						$tmp =~ s/\s+$//;
+					}
+					$current_eprint->set_value( $doi_fieldname, $resultvals{doi} ) if ( (defined $resultvals{doi}) && ((not defined $tmp) || ($tmp eq "")) );
+
+					$tmp = $current_eprint->get_value( $pmid_fieldname );
+					if (defined $tmp)
+					{
+						$tmp =~ s/^\s+//;
+						$tmp =~ s/\s+$//;
+					}
+					$current_eprint->set_value( $pmid_fieldname, $resultvals{pmid} ) if ((defined $resultvals{pmid}) && ((not defined $tmp) || ($tmp eq "")) );
+
+					$current_eprint->commit;
+					
+					print "EPrint " . $current_eprint->get_value("eprintid") . " OK\n";
+				}
+			}
+		}
+	}
+	else 
+	{
+		# If the LAMR request was not successful
+		#
+		my $tmperr = "\n\nBLOCK REQUEST UNSUCCESSFUL\n\nREQUEST is\n" . encode_utf8($reqxml) . 
+		"\nEND REQUEST\nRESPONSE IS\n" . $response->decoded_content . 
+		"\nEND RESPONSE\n\nEND BLOCK REQUEST UNSUCCESSFUL\n\n";
+		print $tmperr;
+		$errmail = $errmail . $tmperr;
+	}
+
+	# Set the counter for the next slice of eprints
+	#
+	$counter = $counter + $request_size;
+	print "Loop #$counter, total=$total\n";
+}
+
+# Prepare and send report by mail
+#
+if ( defined $mailaddress )
+{
+	$errmail = $errmail . "\n\nEPrints with problems:\n" . substr($problemids,0,-1);
+	my $maildoc = $repo->make_doc_fragment();
+	my @maillines = split(/\n/, $errmail);
+	for (my $mailctr = 0; $mailctr < scalar(@maillines); $mailctr++)
+	{
+		$maildoc->appendChild($repo->make_text($maillines[$mailctr]));
+		$maildoc->appendChild($repo->make_element("br"));
+	}
+	my $domail = EPrints::Email::send_mail(
+		session => $repo,
+		langid => "en",
+		to_email => $mailaddress,
+		to_name => $mailname,
+		subject => "Report of citation retrieval from Web of Science",
+		message => $maildoc,
+	);
+	print "Sending of report by mail was not successful.\n" if ( !$domail );
+}
+
+print "Ending\n";
+system "date";
+$eplist->dispose;
+$repo->terminate;
+exit;
+
+
+#Construct an individual citation request.
+#
+sub get_citation_query
+{
+	my ($eprint, $doi_fieldname, $pmid_fieldname) = @_;
+	
+	my ($ut, $doi, $pubmedid, $title, $volume, $issue, $isbn, $issn, $pagerange, $startpage, $artno);
+
+	my $eprintid = $eprint->get_value("eprintid");
+	$ut = CGI::escapeHTML($eprint->get_value("wos_cluster")) if $eprint->exists_and_set("wos_cluster");
+	$ut = CGI::escapeHTML($eprint->get_value("woslamr_cluster")) if $eprint->exists_and_set("woslamr_cluster");
+	$doi = CGI::escapeHTML($eprint->get_value( $doi_fieldname ))  if $eprint->exists_and_set( $doi_fieldname );
+	$pubmedid = CGI::escapeHTML($eprint->get_value( $pmid_fieldname )) if $eprint->exists_and_set( $pmid_fieldname );
+	$title = CGI::escapeHTML($eprint->get_value("title")) if $eprint->exists_and_set("title");
+	$volume = CGI::escapeHTML($eprint->get_value("volume")) if $eprint->exists_and_set("volume");
+	$issue = CGI::escapeHTML($eprint->get_value("issue")) if $eprint->exists_and_set("issue");
+	$issn = CGI::escapeHTML($eprint->get_value("issn")) if $eprint->exists_and_set("issn");
+	$pagerange = $eprint->get_value("pagerange") if $eprint->exists_and_set("pagerange");
+	# UZH CHANGE ZORA-476 2016/03/07/mb
+	$isbn = CGI::escapeHTML($eprint->get_value("isbn")) if $eprint->exists_and_set("isbn");
+	
+
+	if (defined $pagerange && $pagerange =~ /\s*(\d*)\s*-.*/)
+	{
+		$startpage = CGI::escapeHTML($1);
+	}
+	elsif (defined $pagerange && $pagerange =~ /\s*(.*)\s*/)
+	{
+		$artno = CGI::escapeHTML($1) if (($1 ne "online") && !($1 =~ /Epub ahead of print/i));
+	}
+
+	my $cite = qq{<map name="$eprintid">};
+	$cite .= qq{<val name="ut">$ut</val>} if defined $ut;
+	$cite .= qq{<val name="doi">$doi</val>} if defined $doi;
+	$cite .= qq{<val name="pmid">$pubmedid</val>} if defined $pubmedid;
+	$cite .= qq{<val name="atitle">$title</val>} if defined $title;
+	$cite .= qq{<val name="vol">$volume</val>} if defined $volume;
+	$cite .= qq{<val name="issue">$issue</val>} if defined $issue;
+	$cite .= qq{<val name="issn">$issn</val>} if defined $issn;
+	$cite .= qq{<val name="spage">$startpage</val>} if defined $startpage;
+	$cite .= qq{<val name="anumber">$artno</val>} if defined $artno;
+	# UZH CHANGE ZORA-476 2016/03/07/mb
+	$cite .= qq{<val name="isbn">$isbn</val>} if defined $isbn;
+	$cite .= "</map>";
+
+	return $cite;
+}

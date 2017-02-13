@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<!DOCTYPE phrases SYSTEM "entities.dtd">
+
+<epp:phrases xmlns="http://www.w3.org/1999/xhtml" xmlns:epp="http://eprints.org/ep3/phrase" xmlns:epc="http://eprints.org/ep3/control">
+
+  <epp:phrase id="page:fulltext"/>
+  <epp:phrase id="page:nofulltext">ZORA kann den Volltext nicht zur Verfügung stellen.</epp:phrase>
+  <epp:phrase id="page:abstract">Übersicht</epp:phrase>
+  <epp:phrase id="page:deposited_by">Hinterlegt von</epp:phrase>
+  <epp:phrase id="page:deposited_on">Hinterlegt am</epp:phrase>
+  <epp:phrase id="page:id_code">ID-Code</epp:phrase>
+  <epp:phrase id="page:invalid_user">UNGÜLTIGER BENUTZER</epp:phrase>
+  <epp:phrase id="page:latest_version"><p><em>Dies ist die aktuellste Version dieses Eintrags.</em></p></epp:phrase>
+  <epp:phrase id="page:not_latest_version">Es ist eine <epc:pin name="link">neuere Version dieses Eintrags</epc:pin> verfügbar.</epp:phrase>
+  <epp:phrase id="page:available_versions"><h3>Verfügbare Versionen dieses Eintrags</h3></epp:phrase>
+  <epp:phrase id="page:commentary_threads"><h3>Kommentar/Diskussions-Threads</h3></epp:phrase>
+
+  <epp:phrase id="page:abstract_intro"><h3>So wird die Übersichtsseite der Metadaten aussehen:</h3></epp:phrase>
+  <epp:phrase id="page:allfields_intro"><h3>Dies ist der gesamte Inhalt aller Felder dieses Eintrags:</h3></epp:phrase>
+  <epp:phrase id="page:suggestions_intro"><h3>Der Benutzer, der den Eintrag hinterlegte, machte die folgenden Kommentare und Vorschläge:</h3></epp:phrase>
+  <epp:phrase id="page:alert">Warnung</epp:phrase>
+  <epp:phrase id="page:edit_link">Nur für Mitarbeiter des Archivs: <epc:pin name="link">Kontrollseite des Eintrags</epc:pin></epp:phrase>
+  <epp:phrase id="page:request_changes">Benutzer (bitte einloggen): <epc:pin name="link">Aktualisierung oder Korrekturen für diesen Eintrag vorschlagen</epc:pin></epp:phrase>
+
+  <!-- TrendTerms --> 
+  <epp:phrase id="page:trendterms">TrendTerms</epp:phrase>
+
+  <!-- Author Connections -->
+  <epp:phrase id="page:collaborations">Autoren-Netzwerke</epp:phrase>
+
+  <!-- Download Infos --> 
+  <epp:phrase id="page:file_download_heading">Download</epp:phrase>
+  <epp:phrase id="page:file_content">Inhalt: </epp:phrase>
+  <epp:phrase id="page:file_size">Gr&ouml;sse: </epp:phrase>
+  <epp:phrase id="page:file_type">Dateityp: </epp:phrase>
+  <epp:phrase id="page:file_language">Sprache: </epp:phrase>
+  <epp:phrase id="page:file_license">Lizenz: </epp:phrase>
+  <epp:phrase id="page:file_embargo">Gesperrt bis: </epp:phrase>
+
+  <!-- Publisher- or funder-imposed embargos --> 
+  <epp:phrase id="page:embargo_status"><p>Diese Dokumente werden ab <epc:pin name="date"/> öffentlich zugänglich sein.</p></epp:phrase>
+
+  <epp:phrase id="page:zora_url">URL in ZORA</epp:phrase>
+
+  <!-- Link to publisher version -->
+  <epp:phrase id="page:publisher_url">Volltext des Verlags</epp:phrase>
+
+  <!-- Additional indexing section -->
+  <epp:phrase id="page:additional_indexing_title">Zusätzliche Erschliessung</epp:phrase>
+
+  <!-- Statistics section -->
+  <epp:phrase id="page:citations_title">Zitationen</epp:phrase>
+  <epp:phrase id="page:altmetrics_title">Altmetrics</epp:phrase>
+  <epp:phrase id="page:downloads_title">Downloads</epp:phrase>
+  <epp:phrase id="page:times_cited_1">Zitation in</epp:phrase>
+  <epp:phrase id="page:times_cited_n">Zitationen in</epp:phrase>
+  <epp:phrase id="page:downloads_1">Download</epp:phrase>
+  <epp:phrase id="page:downloads_n">Downloads</epp:phrase>
+  <epp:phrase id="page:deposited">seit Hinterlegung am</epp:phrase>
+  <epp:phrase id="page:12m">seit 12 Monaten</epp:phrase>
+  <epp:phrase id="page:detail_stats">Detailierte Angaben</epp:phrase>
+
+  <!-- Permanent URL -->
+  <epp:phrase id="page:permanent_url">Permanente URL: </epp:phrase>
+
+  <!-- More / Less -->
+  <epp:phrase id="page:more_less"> 
+<script type="text/javascript" class="hidden-print" src="/zora_zwonull/scripts/read_less_more/readmore_zora_de.js">
+</script>
+  </epp:phrase>
+
+  <!-- Copy2Clipboard -->
+  <epp:phrase id="page:copy2clipboard">Kopieren</epp:phrase>
+
+</epp:phrases>
+

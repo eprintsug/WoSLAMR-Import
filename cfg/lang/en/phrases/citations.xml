@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<!DOCTYPE phrases SYSTEM "entities.dtd">
+
+<epp:phrases xmlns="http://www.w3.org/1999/xhtml" xmlns:epp="http://eprints.org/ep3/phrase"
+  xmlns:epc="http://eprints.org/ep3/control">
+  <epp:phrase id="citations">Citations</epp:phrase>
+  <epp:phrase id="wos">Web of Science®</epp:phrase>
+  <epp:phrase id="times_cited">Times Cited: </epp:phrase>
+  <epp:phrase id="gscholar">Google Scholar™</epp:phrase>
+  <epp:phrase id="eprint_fieldname_no_citation_data_from_wos">Suppress Web of Science®
+    query</epp:phrase>
+  <epp:phrase id="eprint_fieldhelp_no_citation_data_from_wos">By default Web of Science® will be
+    queried for citation data for certain publication types. If you do not wish this to happen, you
+    may activate this checkbox.</epp:phrase>
+  <epp:phrase id="scopus">Scopus®</epp:phrase>
+  <epp:phrase id="citation_count">Citation Count: </epp:phrase>
+
+  <!-- BEGIN UNUSED PHRASES -->
+  <!-- These phrases are in the form required by the documentation (version 1.5) for the interface to Web of Science® via Links Article Match Retrieval Service. They are however not used by our website. They are included here since their absence causes Undefined phrase errors in the error log -->
+  <epp:phrase id="eprint_fieldname_woslamr_times_cited">Web of Science® Times Cited</epp:phrase>
+  <epp:phrase id="eprint_fieldname_woslamr_cluster">Web of Science® UT Number</epp:phrase>
+  <epp:phrase id="eprint_fieldname_woslamr_source_url">View record in Web of Science®</epp:phrase>
+  <epp:phrase id="eprint_fieldname_woslamr_citing_articles_url">View citing articles in Web of
+    Science®</epp:phrase>
+  <epp:phrase id="eprint_fieldname_woslamr_related_records_url">View Related Records® in Web of
+    Science®</epp:phrase>
+  <!-- END UNUSED PHRASES -->
+</epp:phrases>
