@@ -1,5 +1,5 @@
-#WoSLAMR-Import
-##Web of Science Linked Article Match Retrieval  - Import Citation Data
+# WoSLAMR-Import
+## Web of Science Linked Article Match Retrieval  - Import Citation Data
 
 The WoS LAMR import script gathers citation data from Clarivate Analytics Web of Science™ 
 Core Collection. It imports Times Cited, UT Number, Source URL, Citing Article URL, 
@@ -7,14 +7,14 @@ Related Records URL from Web of Science™ Core Collection via
 [Links Article Match Retrieval Service](http://wokinfo.com/directlinks/amrfaq/) (Links AMR).
 
 
-##Requirements
+## Requirements
 
 License to Clarivate Analytics Web of Science™ Core Collection. In addition, administrators
 should register an appid (e.g. the URL of their repository) and a partner e-mail address
 with Clarivate.
 
 
-##General setup
+## General setup
 
 The setup procedure consists of the following steps
 
@@ -25,16 +25,16 @@ The setup procedure consists of the following steps
 - Rendering the citation data
 
 
-##Installation
+## Installation
 
 Copy the content of the bin and cfg directories to the respective 
 {eprints_root}/archives/{yourarchive}/bin and {eprints_root}/archives/{yourarchive}/cfg 
 directories.
 
 
-##Configuration
+## Configuration
 
-###Edit the z_wos_lamr.pl file
+### Edit the z_wos_lamr.pl file
 
 In your cfg.d/z_wos_lamr.pl file, you need to adapt the following lines:
 
@@ -49,24 +49,24 @@ $c->{woslamr}->{doi} = "doi";
 $c->{woslamr}->{pmid} = "pubmedid";
 ```
 
-###Edit the eprint_fields.pl file
+### Edit the eprint_fields.pl file
 
 Insert the field definitions from cfg.d/eprint_fields_snippet.pl into your 
 cfg.d/eprint_fields.pl .
 
 
 
-###Restart the web server
+### Restart the web server
 
 After you have edited the configuration files, restart the web server.
 
 
-###Add the fields to your database
+### Add the fields to your database
 
 Carry out an epadmin update yourrepo to get the new fields added to your database.
 
 
-###Test the import script
+### Test the import script
 
 Test if you have a successful connection to the WoS LAMR Service by issuing a
 
@@ -75,13 +75,13 @@ sudo -u {web_process_name} bin/import_citation_data_from_wos_via_lamr {yourrepo}
 Depending on your environment, you may also need to specify a http/https proxy server.
 
 
-###Edit your cron table
+### Edit your cron table
 
 Create a shell script that calls bin/import_citation_data_from_wos_via_lamr. 
 Depending on your environment, you may also need to specify a http/https proxy server. 
 Add this script to your crontab; we recommend to carry out the update job once per week. 
 
-###Rendering the citation data
+### Rendering the citation data
 
 Rendering of the citation data is highly specific to how the repository was configured. 
 You can add the WoS fields to your cfg/citations/eprint/summary_page.xml. Others (as we 
