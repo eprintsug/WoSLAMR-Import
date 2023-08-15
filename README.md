@@ -3,8 +3,8 @@
 ## WoS LAMR deprecated as of November 2023
 
 Web of Science Linked Article Match Retrieval will be deprecated as of November 2023. 
-Instead, the Web of Science REST based API must be used then
-The code in this repository below is kept for historic reasons. 
+Instead, the Web of Science REST based API must be used then. 
+The code in this repository below is just kept for historic reasons. 
 
 As a replacement, the [Web of Science citation plugin (WoS REST API based)](https://github.com/eprintsug/wos/) can be used.
 
