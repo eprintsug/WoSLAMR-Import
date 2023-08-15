@@ -1,10 +1,22 @@
 # WoSLAMR-Import
+
+## WoS LAMR deprecated as of November 2023
+
+Web of Science Linked Article Match Retrieval will be deprecated as of November 2023. 
+Instead, the Web of Science REST based API must be used then
+The code in this repository below is kept for historic reasons. 
+
+As a replacement, the [Web of Science citation plugin (WoS REST API based)](https://github.com/eprintsug/wos/) can be used.
+
+
 ## Web of Science Linked Article Match Retrieval  - Import Citation Data
 
 The WoS LAMR import script gathers citation data from Clarivate Analytics Web of Science™ 
 Core Collection. It imports Times Cited, UT Number, Source URL, Citing Article URL, 
 Related Records URL from Web of Science™ Core Collection via 
 [Links Article Match Retrieval Service](http://wokinfo.com/directlinks/amrfaq/) (Links AMR).
+
+
 
 
 ## Requirements
@@ -87,9 +99,3 @@ Rendering of the citation data is highly specific to how the repository was conf
 You can add the WoS fields to your cfg/citations/eprint/summary_page.xml. Others (as we 
 do at UZH) use a tailored cfg.d/eprint_render.pl to render the summary page. We provide
 a snippet in cfg.d/eprint_render_snippet.pl that you can take as an example for your repo.
-
-
-
-
-
-
